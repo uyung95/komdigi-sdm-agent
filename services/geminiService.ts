@@ -2,11 +2,9 @@ import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { Message } from "../types";
 import { BASE_SYSTEM_INSTRUCTION } from "../constants";
 
-declare const process: any;
-
 // Helper to sanitize and format context
 const buildSystemInstruction = (contextData: string): string => {
-  return `${BASE_SYSTEM_INSTRUCTION}\n\n${contextData || "(Belum ada data diunggah. Mohon unggah data peraturan/SOP di menu Data SDM.)"}`;
+  return `${BASE_SYSTEM_INSTRUCTION}\n\n${contextData || "(Belum ada data diunggah. Mohon unggah data peraturan/SOP di menu Log.)"}`;
 };
 
 export class GeminiService {
@@ -15,6 +13,8 @@ export class GeminiService {
   private currentContext: string = "";
 
   constructor() {
+    // The API key is injected by Vite's `define` config during build/dev
+    // It maps VITE_API_KEY from the environment to process.env.API_KEY here
     this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
@@ -75,14 +75,10 @@ export class GeminiService {
    */
   public async extractDocumentContent(fileOrBlob: File | Blob): Promise<string> {
     const validMimeTypes = ['application/pdf'];
-    // Gemini vision works best with PDF for documents. 
-    // For general robustness, we treat input as PDF for vision extraction if not specified.
-    
     const mimeType = fileOrBlob.type || 'application/pdf';
 
     // Basic validation (permissive for Drive blobs which might lack type sometimes)
     if (!mimeType.includes('pdf') && !mimeType.includes('image')) {
-       // Allow execution to try, but warn.
        console.warn("Mime type might not be optimal for vision:", mimeType);
     }
 
@@ -100,16 +96,16 @@ export class GeminiService {
                     }
                 },
                 {
-                    text: "Bertindaklah sebagai OCR yang sangat akurat. Ekstrak seluruh teks dari dokumen ini secara verbatim (kata per kata). Jangan buat ringkasan. Keluarkan hanya teks mentahnya saja agar bisa disimpan ke database."
+                    text: "Bertindaklah sebagai OCR yang sangat akurat. Ekstrak seluruh teks dari dokumen ini secara verbatim (kata per kata). Jangan buat ringkasan. Keluarkan hanya teks mentahnya saja agar bisa disimpan ke database"
                 }
             ]
         }
       });
-
+      
       return response.text || "";
     } catch (error) {
-      console.error("Extraction error:", error);
-      throw error;
+      console.error("Extraction Error:", error);
+      return `Error extracting text: ${error}`;
     }
   }
 
@@ -118,8 +114,8 @@ export class GeminiService {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        // Split to get only base64 part, remove "data:application/pdf;base64," etc
-        const base64 = result.split(',')[1]; 
+        // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+        const base64 = result.split(',')[1];
         resolve(base64);
       };
       reader.onerror = reject;
